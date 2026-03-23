@@ -84,6 +84,15 @@ def _configure_mail(app):
     app.config['MAIL_SERVER'] = Setting.get('MAIL_SERVER', 'localhost')
     app.config['MAIL_PORT'] = int(Setting.get('MAIL_PORT', 25))
     app.config['MAIL_USE_TLS'] = Setting.get('MAIL_USE_TLS', 'false').lower() == 'true'
-    app.config['MAIL_USERNAME'] = Setting.get('MAIL_USERNAME', '')
-    app.config['MAIL_PASSWORD'] = Setting.get('MAIL_PASSWORD', '')
     app.config['MAIL_DEFAULT_SENDER'] = Setting.get('MAIL_SENDER', 'uploader4misp@localhost')
+
+    username = Setting.get('MAIL_USERNAME', '')
+    password = Setting.get('MAIL_PASSWORD', '')
+    if username and password:
+        app.config['MAIL_USERNAME'] = username
+        app.config['MAIL_PASSWORD'] = password
+        app.config['MAIL_USE_CREDENTIALS'] = True
+    else:
+        app.config['MAIL_USERNAME'] = None
+        app.config['MAIL_PASSWORD'] = None
+        app.config['MAIL_USE_CREDENTIALS'] = False
