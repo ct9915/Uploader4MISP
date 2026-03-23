@@ -4,6 +4,123 @@
 
 ---
 
+## 系統架構
+
+### 元件總覽
+
+```mermaid
+graph TB
+    subgraph Browser["🖥️ 使用者瀏覽器"]
+        UI["網頁介面\n(Bootstrap 5)"]
+    end
+
+    subgraph Flask["🐍 Flask 應用程式"]
+        direction TB
+        AUTH["auth blueprint\n登入 / 登出"]
+        MAIN["main blueprint\n檔案上傳 / 掃描結果"]
+        ADMIN["admin blueprint\n使用者管理 / 系統設定"]
+
+        subgraph Pipeline["檔案處理管線"]
+            HASH["hash_utils\nMD5 / SHA1 / SHA256"]
+            ARCHIVE["archive_utils\n壓縮檔偵測與解壓縮"]
+            MISP_C["misp_client\nPyMISP 查詢"]
+            VT_C["vt_client\nVT API v3 查詢"]
+            EMAIL_C["email_utils\n背景執行緒寄信"]
+        end
+    end
+
+    subgraph Storage["💾 本機儲存"]
+        DB[("SQLite\napp.db\n使用者 / 設定")]
+        FS["暫存目錄\ninstance/uploads\ninstance/temp\n(查詢後自動刪除)"]
+    end
+
+    subgraph External["☁️ 外部服務"]
+        AD["Active Directory\nLDAP / NTLM"]
+        MISP_SRV["MISP Server\n(本地部署)"]
+        VT_SRV["VirusTotal\nAPI v3"]
+        SMTP["SMTP 郵件伺服器"]
+    end
+
+    UI -->|"HTTP POST 上傳"| MAIN
+    UI -->|"登入表單"| AUTH
+    UI -->|"管理操作"| ADMIN
+
+    AUTH -->|"本機驗證"| DB
+    AUTH -->|"AD 帳號驗證"| AD
+    AUTH -->|"首次登入自動建帳"| DB
+
+    ADMIN -->|"CRUD"| DB
+
+    MAIN --> HASH
+    MAIN --> ARCHIVE
+    ARCHIVE -->|"解壓縮檔案"| FS
+    HASH -->|"SHA256"| MISP_C
+    HASH -->|"SHA256"| VT_C
+    MISP_C -->|"PyMISP"| MISP_SRV
+    VT_C -->|"REST API"| VT_SRV
+    MAIN -->|"背景發送"| EMAIL_C
+    EMAIL_C -->|"SMTP"| SMTP
+    MISP_C -->|"讀取設定"| DB
+    VT_C -->|"讀取設定"| DB
+    EMAIL_C -->|"讀取設定"| DB
+```
+
+### 檔案掃描流程
+
+```mermaid
+flowchart TD
+    A([使用者上傳檔案]) --> B[儲存至暫存目錄]
+    B --> C[計算 MD5 / SHA1 / SHA256]
+    C --> D[查詢 MISP]
+    C --> E[查詢 VirusTotal]
+    D --> F{是壓縮檔？\n.zip .7z .rar .tar…}
+    E --> F
+    F -- 否 --> J
+    F -- 是 --> G{有密碼保護？}
+    G -- 是 --> H[記錄：僅查詢壓縮檔本身]
+    G -- 否 --> I[解壓縮至 temp 目錄]
+    H --> J
+    I --> I2[對每個內部檔案\n重複 計算雜湊 → MISP → VT]
+    I2 --> J[彙整所有查詢結果]
+    J --> K[刪除上傳檔案\n及暫存目錄]
+    K --> L[渲染結果頁面]
+    L --> M([回傳給使用者])
+    L --> N[背景執行緒\n寄送結果 Email]
+
+    style H fill:#fff3cd,stroke:#ffc107
+    style I2 fill:#d1ecf1,stroke:#17a2b8
+    style K fill:#f8d7da,stroke:#dc3545
+    style M fill:#d4edda,stroke:#28a745
+    style N fill:#d4edda,stroke:#28a745
+```
+
+### 認證流程
+
+```mermaid
+flowchart TD
+    A([輸入帳號密碼]) --> B{本機帳號\n存在於 DB？}
+    B -- 是，且非 AD 帳號 --> C[bcrypt 密碼比對]
+    C -- 成功 --> G
+    C -- 失敗 --> F
+    B -- 否 --> D{AD 已設定？}
+    B -- 是，AD 帳號 --> D
+    D -- 否 --> F
+    D -- 是 --> E[LDAP Bind 驗證\nNTLM → UPN fallback]
+    E -- 成功 --> E2{帳號已存在\n於 DB？}
+    E2 -- 否 --> E3[自動建立 AD 使用者\n角色：user]
+    E3 --> G
+    E2 -- 是 --> G
+    E -- 失敗 --> F
+    G([登入成功])
+    F([顯示錯誤訊息])
+
+    style G fill:#d4edda,stroke:#28a745
+    style F fill:#f8d7da,stroke:#dc3545
+    style E3 fill:#d1ecf1,stroke:#17a2b8
+```
+
+---
+
 ## 功能特色
 
 - **雜湊計算**：自動計算 MD5、SHA1、SHA256
