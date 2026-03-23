@@ -359,6 +359,30 @@ python run.py
 
 ---
 
+## 更新架構圖
+
+架構圖原始碼位於 `docs/diagrams/*.mmd`，修改後執行以下指令重新產生 PNG：
+
+### 安裝 mermaid-cli（僅需一次）
+
+```bash
+npm install -g @mermaid-js/mermaid-cli
+```
+
+### 重新產生全部三張圖
+
+```bash
+cd docs/diagrams
+
+mmdc -i 01_system_overview.mmd -o 01_system_overview.png -w 1600 -H 1200 --backgroundColor white
+mmdc -i 02_scan_flow.mmd       -o 02_scan_flow.png       -w 1200 -H 1600 --backgroundColor white
+mmdc -i 03_auth_flow.mmd       -o 03_auth_flow.png       -w 1200 -H 1400 --backgroundColor white
+```
+
+產生後將 PNG 一併 commit 即可更新 README 上顯示的圖片。
+
+---
+
 ## 正式環境部署建議
 
 以 `gunicorn` 搭配 `nginx` 反向代理為例：
