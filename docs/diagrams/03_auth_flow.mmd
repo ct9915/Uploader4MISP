@@ -1,0 +1,20 @@
+flowchart TD
+    A([輸入帳號密碼]) --> B{本機帳號\n存在於 DB？}
+    B -- 是，且非 AD 帳號 --> C[bcrypt 密碼比對]
+    C -- 成功 --> G
+    C -- 失敗 --> F
+    B -- 否 --> D{AD 已設定？}
+    B -- 是，AD 帳號 --> D
+    D -- 否 --> F
+    D -- 是 --> E[LDAP Bind 驗證\nNTLM → UPN fallback]
+    E -- 成功 --> E2{帳號已存在\n於 DB？}
+    E2 -- 否 --> E3[自動建立 AD 使用者\n角色：user]
+    E3 --> G
+    E2 -- 是 --> G
+    E -- 失敗 --> F
+    G([登入成功])
+    F([顯示錯誤訊息])
+
+    style G fill:#d4edda,stroke:#28a745
+    style F fill:#f8d7da,stroke:#dc3545
+    style E3 fill:#d1ecf1,stroke:#17a2b8

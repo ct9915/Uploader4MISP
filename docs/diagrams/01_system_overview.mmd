@@ -1,0 +1,54 @@
+graph TB
+    subgraph Browser["🖥️ 使用者瀏覽器"]
+        UI["網頁介面\n(Bootstrap 5)"]
+    end
+
+    subgraph Flask["🐍 Flask 應用程式"]
+        direction TB
+        AUTH["auth blueprint\n登入 / 登出"]
+        MAIN["main blueprint\n檔案上傳 / 掃描結果"]
+        ADMIN["admin blueprint\n使用者管理 / 系統設定"]
+
+        subgraph Pipeline["檔案處理管線"]
+            HASH["hash_utils\nMD5 / SHA1 / SHA256"]
+            ARCHIVE["archive_utils\n壓縮檔偵測與解壓縮"]
+            MISP_C["misp_client\nPyMISP 查詢"]
+            VT_C["vt_client\nVT API v3 查詢"]
+            EMAIL_C["email_utils\n背景執行緒寄信"]
+        end
+    end
+
+    subgraph Storage["💾 本機儲存"]
+        DB[("SQLite\napp.db\n使用者 / 設定")]
+        FS["暫存目錄\ninstance/uploads\ninstance/temp\n(查詢後自動刪除)"]
+    end
+
+    subgraph External["☁️ 外部服務"]
+        AD["Active Directory\nLDAP / NTLM"]
+        MISP_SRV["MISP Server\n(本地部署)"]
+        VT_SRV["VirusTotal\nAPI v3"]
+        SMTP["SMTP 郵件伺服器"]
+    end
+
+    UI -->|"HTTP POST 上傳"| MAIN
+    UI -->|"登入表單"| AUTH
+    UI -->|"管理操作"| ADMIN
+
+    AUTH -->|"本機驗證"| DB
+    AUTH -->|"AD 帳號驗證"| AD
+    AUTH -->|"首次登入自動建帳"| DB
+
+    ADMIN -->|"CRUD"| DB
+
+    MAIN --> HASH
+    MAIN --> ARCHIVE
+    ARCHIVE -->|"解壓縮檔案"| FS
+    HASH -->|"SHA256"| MISP_C
+    HASH -->|"SHA256"| VT_C
+    MISP_C -->|"PyMISP"| MISP_SRV
+    VT_C -->|"REST API"| VT_SRV
+    MAIN -->|"背景發送"| EMAIL_C
+    EMAIL_C -->|"SMTP"| SMTP
+    MISP_C -->|"讀取設定"| DB
+    VT_C -->|"讀取設定"| DB
+    EMAIL_C -->|"讀取設定"| DB

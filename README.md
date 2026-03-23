@@ -8,6 +8,11 @@
 
 ### 元件總覽
 
+![系統元件總覽](docs/diagrams/01_system_overview.png)
+
+<details>
+<summary>Mermaid 原始碼</summary>
+
 ```mermaid
 graph TB
     subgraph Browser["🖥️ 使用者瀏覽器"]
@@ -65,7 +70,14 @@ graph TB
     EMAIL_C -->|"讀取設定"| DB
 ```
 
+</details>
+
 ### 檔案掃描流程
+
+![檔案掃描流程](docs/diagrams/02_scan_flow.png)
+
+<details>
+<summary>Mermaid 原始碼</summary>
 
 ```mermaid
 flowchart TD
@@ -94,7 +106,14 @@ flowchart TD
     style N fill:#d4edda,stroke:#28a745
 ```
 
+</details>
+
 ### 認證流程
+
+![認證流程](docs/diagrams/03_auth_flow.png)
+
+<details>
+<summary>Mermaid 原始碼</summary>
 
 ```mermaid
 flowchart TD
@@ -118,6 +137,8 @@ flowchart TD
     style F fill:#f8d7da,stroke:#dc3545
     style E3 fill:#d1ecf1,stroke:#17a2b8
 ```
+
+</details>
 
 ---
 
