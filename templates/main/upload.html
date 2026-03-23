@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}上傳檔案 &mdash; Uploader4MISP{% endblock %}
+
+{% block head %}
+<style>
+  #drop-zone {
+    border: 2.5px dashed #adb5bd;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+    background-color: #ffffff;
+  }
+  #drop-zone.dragover {
+    border-color: #0d6efd;
+    background-color: #e9f2ff;
+  }
+  #drop-zone .drop-icon {
+    font-size: 4rem;
+    color: #6c757d;
+  }
+  #drop-zone.dragover .drop-icon {
+    color: #0d6efd;
+  }
+  #file-name-display {
+    font-size: 0.95rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <h2 class="mb-4">
+      <i class="bi bi-upload me-2"></i>上傳檔案進行掃描
+    </h2>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form id="upload-form" method="post" action="{{ url_for('main.upload') }}"
+              enctype="multipart/form-data" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Drop zone -->
+          <div id="drop-zone" onclick="document.getElementById('fileInput').click()">
+            <div class="drop-icon mb-3">
+              <i class="bi bi-cloud-arrow-up-fill"></i>
+            </div>
+            <h5 class="mb-1">拖曳檔案至此處</h5>
+            <p class="text-muted mb-3">或點擊選擇檔案</p>
+            <p class="text-muted small mb-0">
+              支援格式：任意檔案，壓縮檔（zip、7z、rar、tar、tar.gz、tar.bz2）將自動解壓縮掃描
+            </p>
+            <p class="text-muted small">最大上傳大小：500 MB</p>
+          </div>
+
+          <input type="file" id="fileInput" name="file" class="d-none">
+
+          <!-- Selected file name -->
+          <div id="file-name-display" class="mt-3 text-center text-muted d-none">
+            <i class="bi bi-file-earmark-fill me-1"></i>
+            <span id="file-name-text"></span>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2"
+                    id="clear-file" title="取消選擇">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </div>
+
+          <!-- Progress bar (hidden until upload starts) -->
+          <div class="progress mt-3 d-none" id="upload-progress" style="height: 8px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 role="progressbar" style="width: 100%"></div>
+          </div>
+
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg" id="submit-btn" disabled>
+              <i class="bi bi-search me-1"></i>開始掃描
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-4" role="alert">
+      <i class="bi bi-info-circle-fill me-2"></i>
+      <strong>說明：</strong>
+      上傳的檔案將計算 MD5 / SHA1 / SHA256，並查詢 MISP 和 VirusTotal。
+      壓縮檔若無密碼保護，將同時掃描壓縮包內每個檔案。
+      掃描完成後結果會寄送至您的帳號電子郵件。
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('fileInput');
+  const submitBtn   = document.getElementById('submit-btn');
+  const fileDisplay = document.getElementById('file-name-display');
+  const fileNameTxt = document.getElementById('file-name-text');
+  const clearBtn    = document.getElementById('clear-file');
+  const form        = document.getElementById('upload-form');
+  const progressBar = document.getElementById('upload-progress');
+
+  function setFile(file) {
+    if (!file) return;
+    fileNameTxt.textContent = file.name;
+    fileDisplay.classList.remove('d-none');
+    submitBtn.disabled = false;
+  }
+
+  function clearFile() {
+    fileInput.value = '';
+    fileDisplay.classList.add('d-none');
+    fileNameTxt.textContent = '';
+    submitBtn.disabled = true;
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) setFile(fileInput.files[0]);
+    else clearFile();
+  });
+
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearFile();
+  });
+
+  // Drag-and-drop
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  ['dragleave', 'dragend'].forEach(evt => {
+    dropZone.addEventListener(evt, () => dropZone.classList.remove('dragover'));
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      // Assign dropped file to the real input
+      const dt = new DataTransfer();
+      dt.items.add(files[0]);
+      fileInput.files = dt.files;
+      setFile(files[0]);
+    }
+  });
+
+  // Show progress bar on submit
+  form.addEventListener('submit', () => {
+    progressBar.classList.remove('d-none');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>掃描中…';
+  });
+</script>
+{% endblock %}

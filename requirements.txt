@@ -1,0 +1,13 @@
+Flask==3.0.3
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+Flask-Mail==0.10.0
+Flask-WTF==1.2.1
+WTForms==3.1.2
+pymisp==2.4.188
+vt-py==0.18.5
+ldap3==2.9.1
+py7zr==0.21.0
+rarfile==4.2
+bcrypt==4.2.0
+python-dotenv==1.0.1

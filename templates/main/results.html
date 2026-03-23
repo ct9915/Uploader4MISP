@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+
+{% block title %}掃描結果 &mdash; Uploader4MISP{% endblock %}
+
+{% block head %}
+<style>
+  .hash-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .hash-value {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
+  .result-card {
+    border-left: 4px solid #dee2e6;
+    transition: border-color 0.2s;
+  }
+  .result-card.threat-detected {
+    border-left-color: #dc3545;
+  }
+  .result-card.threat-clean {
+    border-left-color: #198754;
+  }
+  .badge-archive {
+    font-size: 0.7rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <h2 class="me-3 mb-0">
+    <i class="bi bi-clipboard2-data-fill me-2"></i>掃描結果
+  </h2>
+  <span class="badge bg-secondary fs-6">{{ filename }}</span>
+</div>
+
+{% if not results %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>無法取得掃描結果。
+</div>
+{% endif %}
+
+<!-- Summary bar -->
+{% set total_count = results | length %}
+{% set misp_hits   = results | selectattr('misp.found', 'equalto', true) | list | length %}
+{% set vt_hits     = results | selectattr('vt.malicious', 'defined') | selectattr('vt.malicious', 'gt', 0) | list | length %}
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body">
+        <div class="fs-2 fw-bold">{{ total_count }}</div>
+        <div class="text-muted small">掃描的檔案數</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card text-center border-0 shadow-sm {% if misp_hits > 0 %}bg-danger text-white{% endif %}">
+      <div class="card-body">
+        <div class="fs-2 fw-bold">{{ misp_hits }}</div>
+        <div class="small {% if misp_hits > 0 %}text-white-50{% else %}text-muted{% endif %}">
+          MISP 命中數
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card text-center border-0 shadow-sm {% if vt_hits > 0 %}bg-danger text-white{% endif %}">
+      <div class="card-body">
+        <div class="fs-2 fw-bold">{{ vt_hits }}</div>
+        <div class="small {% if vt_hits > 0 %}text-white-50{% else %}text-muted{% endif %}">
+          VirusTotal 惡意偵測
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Per-file accordion -->
+<div class="accordion" id="resultsAccordion">
+  {% for item in results %}
+  {% set idx = loop.index %}
+  {% set is_threat = (item.misp.found or (item.vt.found and item.vt.malicious > 0)) %}
+
+  <div class="accordion-item mb-3 border rounded shadow-sm result-card
+       {% if is_threat %}threat-detected{% elif not item.misp.get('error') and not item.vt.get('error') %}threat-clean{% endif %}">
+    <h2 class="accordion-header" id="heading{{ idx }}">
+      <button class="accordion-button {% if idx > 1 %}collapsed{% endif %} rounded"
+              type="button" data-bs-toggle="collapse"
+              data-bs-target="#collapse{{ idx }}"
+              aria-expanded="{{ 'true' if idx == 1 else 'false' }}"
+              aria-controls="collapse{{ idx }}">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <!-- Threat indicator -->
+          {% if is_threat %}
+          <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+          {% else %}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {% endif %}
+
+          <!-- Filename -->
+          <span class="fw-semibold">{{ item.filename }}</span>
+
+          <!-- Tags -->
+          {% if item.is_archive %}
+          <span class="badge bg-info text-dark badge-archive">
+            <i class="bi bi-file-zip-fill me-1"></i>壓縮檔
+          </span>
+          {% endif %}
+          {% if item.get('parent') %}
+          <span class="badge bg-secondary badge-archive">
+            來自：{{ item.parent }}
+          </span>
+          {% endif %}
+
+          <!-- Quick VT badge -->
+          {% if item.vt.found %}
+          <span class="badge {% if item.vt.malicious > 0 %}bg-danger{% else %}bg-success{% endif %} badge-archive ms-auto">
+            VT {{ item.vt.malicious }}/{{ item.vt.total }}
+          </span>
+          {% endif %}
+        </div>
+      </button>
+    </h2>
+
+    <div id="collapse{{ idx }}"
+         class="accordion-collapse collapse {% if idx == 1 %}show{% endif %}"
+         aria-labelledby="heading{{ idx }}"
+         data-bs-parent="#resultsAccordion">
+      <div class="accordion-body">
+
+        <!-- Archive note -->
+        {% if item.get('archive_note') %}
+        <div class="alert alert-warning py-2">
+          <i class="bi bi-info-circle me-1"></i>{{ item.archive_note }}
+        </div>
+        {% endif %}
+
+        <!-- Hash table -->
+        <h6 class="text-uppercase text-muted fw-semibold mb-2">
+          <i class="bi bi-fingerprint me-1"></i>雜湊值
+        </h6>
+        <table class="table table-sm table-bordered mb-4">
+          <tbody>
+            <tr>
+              <td class="hash-label" style="width:90px;">MD5</td>
+              <td class="hash-value">{{ item.hashes.md5 }}</td>
+            </tr>
+            <tr>
+              <td class="hash-label">SHA1</td>
+              <td class="hash-value">{{ item.hashes.sha1 }}</td>
+            </tr>
+            <tr>
+              <td class="hash-label">SHA256</td>
+              <td class="hash-value">{{ item.hashes.sha256 }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="row g-3">
+          <!-- MISP results -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 bg-light">
+              <div class="card-header bg-transparent border-0 pb-0">
+                <h6 class="mb-0 fw-semibold">
+                  <i class="bi bi-radar me-1"></i>MISP 查詢結果
+                </h6>
+              </div>
+              <div class="card-body">
+                {% if item.misp.get('error') %}
+                <div class="alert alert-secondary py-2 mb-0">
+                  <i class="bi bi-exclamation-circle me-1"></i>
+                  <small>{{ item.misp.error }}</small>
+                </div>
+
+                {% elif item.misp.found %}
+                <div class="alert alert-danger py-2 mb-2">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                  <strong>發現 {{ item.misp.events | length }} 個相關事件！</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                  {% for ev in item.misp.events %}
+                  <li class="list-group-item px-0 py-1 bg-transparent">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <span class="badge bg-danger me-1">#{{ ev.id }}</span>
+                        {{ ev.info }}
+                      </div>
+                      <small class="text-muted ms-2 text-nowrap">{{ ev.date }}</small>
+                    </div>
+                    <small class="text-muted">威脅等級: {{ ev.threat_level }}</small>
+                  </li>
+                  {% endfor %}
+                </ul>
+
+                {% else %}
+                <div class="alert alert-success py-2 mb-0">
+                  <i class="bi bi-check-circle-fill me-1"></i>
+                  MISP 中未發現威脅。
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- VirusTotal results -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 bg-light">
+              <div class="card-header bg-transparent border-0 pb-0">
+                <h6 class="mb-0 fw-semibold">
+                  <i class="bi bi-virus2 me-1"></i>VirusTotal 查詢結果
+                </h6>
+              </div>
+              <div class="card-body">
+                {% if item.vt.get('error') %}
+                <div class="alert alert-secondary py-2 mb-0">
+                  <i class="bi bi-exclamation-circle me-1"></i>
+                  <small>{{ item.vt.error }}</small>
+                </div>
+
+                {% elif item.vt.found %}
+                {% set mal = item.vt.malicious %}
+                {% set total = item.vt.total %}
+                <div class="alert {% if mal > 0 %}alert-danger{% else %}alert-success{% endif %} py-2 mb-3">
+                  <i class="bi {% if mal > 0 %}bi-bug-fill{% else %}bi-shield-check{% endif %} me-1"></i>
+                  <strong>惡意偵測: {{ mal }} / {{ total }}</strong>
+                </div>
+
+                {% if total > 0 %}
+                <!-- Detection ratio bar -->
+                <div class="mb-2">
+                  <div class="progress" style="height: 12px;" title="{{ mal }} / {{ total }} 引擎偵測為惡意">
+                    <div class="progress-bar bg-danger"
+                         style="width: {{ ((mal / total) * 100) | round(1) }}%"></div>
+                    <div class="progress-bar bg-warning"
+                         style="width: {{ ((item.vt.suspicious / total) * 100) | round(1) }}%"></div>
+                    <div class="progress-bar bg-success"
+                         style="width: {{ (((item.vt.harmless + item.vt.undetected) / total) * 100) | round(1) }}%"></div>
+                  </div>
+                  <div class="d-flex justify-content-between mt-1">
+                    <small class="text-danger">惡意 {{ mal }}</small>
+                    <small class="text-warning">可疑 {{ item.vt.suspicious }}</small>
+                    <small class="text-muted">無害/未偵測 {{ item.vt.harmless + item.vt.undetected }}</small>
+                  </div>
+                </div>
+                {% endif %}
+
+                {% if item.vt.name %}
+                <p class="mb-1 small"><strong>檔名：</strong>{{ item.vt.name }}</p>
+                {% endif %}
+                {% if item.vt.type %}
+                <p class="mb-0 small"><strong>類型：</strong>{{ item.vt.type }}</p>
+                {% endif %}
+
+                {% else %}
+                <div class="alert alert-secondary py-2 mb-0">
+                  <i class="bi bi-question-circle me-1"></i>
+                  {{ item.vt.get('message', '在 VirusTotal 中未找到此檔案。') }}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div><!-- /.row -->
+      </div><!-- /.accordion-body -->
+    </div><!-- /.accordion-collapse -->
+  </div><!-- /.accordion-item -->
+  {% endfor %}
+</div><!-- /#resultsAccordion -->
+
+<div class="text-center mt-4">
+  <a href="{{ url_for('main.upload') }}" class="btn btn-outline-dark btn-lg">
+    <i class="bi bi-arrow-left-circle me-1"></i>返回上傳
+  </a>
+</div>
+{% endblock %}

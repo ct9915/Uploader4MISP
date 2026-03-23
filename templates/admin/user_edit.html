@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if user %}編輯使用者{% else %}新增使用者{% endif %} &mdash; Uploader4MISP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <div class="d-flex align-items-center mb-4">
+      <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <h2 class="mb-0">
+        {% if user %}
+        <i class="bi bi-pencil-fill me-2"></i>編輯使用者
+        {% else %}
+        <i class="bi bi-person-plus-fill me-2"></i>新增使用者
+        {% endif %}
+      </h2>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Username -->
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold">
+              帳號 <span class="text-danger">*</span>
+            </label>
+            {% if user %}
+            <input type="text" class="form-control" id="username" name="username"
+                   value="{{ user.username }}" readonly>
+            <div class="form-text">帳號建立後無法修改。</div>
+            {% else %}
+            <input type="text" class="form-control" id="username" name="username"
+                   placeholder="請輸入帳號" required autofocus>
+            {% endif %}
+          </div>
+
+          <!-- Email -->
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">電子郵件</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="user@example.com"
+                   value="{{ user.email if user and user.email else '' }}">
+            <div class="form-text">掃描結果報告將寄送至此地址。</div>
+          </div>
+
+          <!-- Role -->
+          <div class="mb-3">
+            <label for="role_id" class="form-label fw-semibold">
+              角色 <span class="text-danger">*</span>
+            </label>
+            <select class="form-select" id="role_id" name="role_id" required>
+              {% for role in roles %}
+              <option value="{{ role.id }}"
+                {% if user and user.role_id == role.id %}selected{% endif %}>
+                {{ role.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- AD user -->
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch"
+                     id="is_ad_user" name="is_ad_user"
+                     {% if user and user.is_ad_user %}checked{% endif %}
+                     onchange="togglePassword(this)">
+              <label class="form-check-label fw-semibold" for="is_ad_user">
+                Active Directory 使用者
+              </label>
+            </div>
+            <div class="form-text">啟用後將透過 LDAP/AD 驗證，無需設定密碼。</div>
+          </div>
+
+          <!-- Password -->
+          <div class="mb-4" id="password-section"
+               {% if user and user.is_ad_user %}style="display:none;"{% endif %}>
+            <label for="password" class="form-label fw-semibold">
+              密碼
+              {% if user %}
+              <span class="text-muted fw-normal">（留空則不更改）</span>
+              {% else %}
+              <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+            <div class="input-group">
+              <input type="password" class="form-control" id="password" name="password"
+                     placeholder="{% if user %}留空則維持原密碼{% else %}請輸入密碼{% endif %}"
+                     autocomplete="new-password">
+              <button class="btn btn-outline-secondary" type="button" id="togglePwBtn"
+                      tabindex="-1">
+                <i class="bi bi-eye" id="pwIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if user %}儲存變更{% else %}建立使用者{% endif %}
+            </button>
+            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
+              取消
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function togglePassword(checkbox) {
+    const section = document.getElementById('password-section');
+    section.style.display = checkbox.checked ? 'none' : '';
+  }
+
+  const togglePwBtn = document.getElementById('togglePwBtn');
+  const pwInput     = document.getElementById('password');
+  const pwIcon      = document.getElementById('pwIcon');
+
+  if (togglePwBtn) {
+    togglePwBtn.addEventListener('click', () => {
+      const isPassword = pwInput.type === 'password';
+      pwInput.type     = isPassword ? 'text' : 'password';
+      pwIcon.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+    });
+  }
+</script>
+{% endblock %}
