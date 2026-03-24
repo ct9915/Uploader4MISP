@@ -1,0 +1,35 @@
+[Unit]
+Description=Uploader4MISP - 惡意檔案檢測平台
+After=network.target
+
+[Service]
+Type=simple
+# 請將 User/Group 改為實際執行服務的系統帳號
+User=www-data
+Group=www-data
+
+# 請將 WorkingDirectory 改為本專案的實際安裝路徑
+WorkingDirectory=/opt/Uploader4MISP
+
+# 環境變數設定（可依需求修改或移至 EnvironmentFile）
+Environment="FLASK_ENV=production"
+Environment="PORT=5000"
+# 若需自訂 Secret Key，請取消下一行的註解並填入強密鑰
+# Environment="SECRET_KEY=your-strong-secret-key-here"
+
+# 若要從獨立的 .env 檔案載入環境變數，請取消下一行的註解
+# EnvironmentFile=/opt/Uploader4MISP/.env
+
+# 使用虛擬環境中的 Python 執行應用程式
+ExecStart=/opt/Uploader4MISP/venv/bin/python run.py
+
+# 服務異常時自動重啟
+Restart=on-failure
+RestartSec=5s
+
+# 安全限制（建議在 production 環境保留）
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
