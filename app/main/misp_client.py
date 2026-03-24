@@ -16,7 +16,13 @@ def search_hash(hash_value):
         verify = Setting.get('MISP_VERIFYCERT', 'false').lower() == 'true'
         if not url or not key:
             return {'error': 'MISP未設定', 'found': False, 'events': []}
-        misp = PyMISP(url, key, verify)
+
+        # --- Proxy support ---
+        # PyMISP passes proxies through to the underlying requests.Session.
+        proxy_url = Setting.get('HTTPS_PROXY', '').strip()
+        proxies = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
+
+        misp = PyMISP(url, key, verify, proxies=proxies)
         result = misp.search(
             value=hash_value,
             type_attribute='md5|sha1|sha256|filename|md5|filename|sha1|filename|sha256',

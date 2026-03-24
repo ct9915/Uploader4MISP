@@ -46,6 +46,33 @@
     </div>
   </div>
 
+  <!-- Proxy / Network Settings -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark">
+      <h5 class="mb-0">
+        <i class="bi bi-hdd-network-fill me-2"></i>Proxy / 網路設定
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        {% for key, label, type in setting_keys if key in ('HTTPS_PROXY',) %}
+        <div class="col-md-8">
+          {{ _render_field(key, label, type, current[key]) }}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="alert alert-info mt-3 mb-0">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        若公司防火牆 / Proxy 使用自建 SSL 憑證，請在 <strong>VirusTotal 設定</strong>
+        中將「VT 驗證 SSL」設為 <code>false</code>，或填入 PEM 格式的
+        <strong>CA 憑證路徑</strong>。<br>
+        MISP 端請調整「MISP 驗證 SSL」，並確認 MISP API Key 的 IP 白名單包含
+        Proxy 出口 IP。<br>
+        <strong>HTTPS Proxy</strong> 欄位同時套用至 MISP 與 VirusTotal 的對外連線。
+      </div>
+    </div>
+  </div>
+
   <!-- Mail Settings -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-success text-white">
