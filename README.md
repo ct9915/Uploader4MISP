@@ -389,7 +389,11 @@ mmdc -i 03_auth_flow.mmd       -o 03_auth_flow.png       -w 1200 -H 1400 --backg
 
 ```bash
 pip install gunicorn
-gunicorn -w 4 -b 127.0.0.1:5000 "app:create_app()"
+# 使用 wsgi.py 作為 entry point（推薦）
+gunicorn -w 4 -b 0.0.0.0:5000 wsgi:app
+
+# 或設定 FLASK_ENV=production 後執行 run.py（自動切換至 gunicorn）
+FLASK_ENV=production python run.py
 ```
 
 nginx 設定片段：
@@ -443,7 +447,10 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 ```bash
 export FLASK_ENV=production
 export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+# production 模式下 run.py 會自動改用 gunicorn
 python run.py
+# 或直接使用 gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 wsgi:app
 ```
 
 > ⚠️ **注意：** 在 `production` 模式下，若 `SECRET_KEY` 仍為預設值 `change-me-in-production`，應用程式將**拒絕啟動**並顯示錯誤訊息。
