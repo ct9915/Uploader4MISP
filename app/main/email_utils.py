@@ -1,7 +1,8 @@
+import smtplib
 import threading
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from flask import render_template_string
-from flask_mail import Message
-from app import mail
 from app.models import Setting
 
 EMAIL_TEMPLATE = """\
@@ -57,21 +58,48 @@ EMAIL_TEMPLATE = """\
 
 
 def send_results_email(app, recipient_email, filename, results):
-    """Send scan results to recipient_email in a background thread."""
-    if not recipient_email:
+    """Send scan results to recipient_email in a background thread.
+
+    Silently skips if recipient_email is empty or not configured.
+    """
+    if not recipient_email or recipient_email.strip() == '':
+        app.logger.debug('No email configured for user, skipping email notification')
         return
 
     def _send():
         with app.app_context():
             try:
-                _configure_mail(app)
+                cfg = _get_mail_config()
                 html = render_template_string(EMAIL_TEMPLATE, results=results)
-                msg = Message(
-                    subject=f'[掃描結果] {filename}',
-                    recipients=[recipient_email],
-                    html=html,
-                )
-                mail.send(msg)
+
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = f'[掃描結果] {filename}'
+                msg['From'] = cfg['sender']
+                msg['To'] = recipient_email
+                msg.attach(MIMEText(html, 'html', 'utf-8'))
+
+                port = cfg['port']
+                host = cfg['server']
+
+                # Choose SMTP connection type based on port:
+                # port 465  → SMTP_SSL (implicit TLS)
+                # port 587  → SMTP + STARTTLS
+                # port 25 or other → plain SMTP (no TLS)
+                if port == 465:
+                    smtp = smtplib.SMTP_SSL(host, port)
+                elif port == 587:
+                    smtp = smtplib.SMTP(host, port)
+                    smtp.starttls()
+                else:
+                    # port 25 (corporate SMTP) — plain SMTP, no TLS
+                    smtp = smtplib.SMTP(host, port)
+
+                if cfg['username'] and cfg['password']:
+                    smtp.login(cfg['username'], cfg['password'])
+
+                smtp.sendmail(cfg['sender'], [recipient_email], msg.as_bytes())
+                smtp.quit()
+                app.logger.info(f'Email sent to {recipient_email} for {filename}')
             except Exception as e:
                 app.logger.error(f'Email sending failed: {e}')
 
@@ -79,20 +107,12 @@ def send_results_email(app, recipient_email, filename, results):
     t.start()
 
 
-def _configure_mail(app):
-    """Push SMTP settings from the database into Flask-Mail config."""
-    app.config['MAIL_SERVER'] = Setting.get('MAIL_SERVER', 'localhost')
-    app.config['MAIL_PORT'] = int(Setting.get('MAIL_PORT', 25))
-    app.config['MAIL_USE_TLS'] = Setting.get('MAIL_USE_TLS', 'false').lower() == 'true'
-    app.config['MAIL_DEFAULT_SENDER'] = Setting.get('MAIL_SENDER', 'uploader4misp@localhost')
-
-    username = Setting.get('MAIL_USERNAME', '')
-    password = Setting.get('MAIL_PASSWORD', '')
-    if username and password:
-        app.config['MAIL_USERNAME'] = username
-        app.config['MAIL_PASSWORD'] = password
-        app.config['MAIL_USE_CREDENTIALS'] = True
-    else:
-        app.config['MAIL_USERNAME'] = None
-        app.config['MAIL_PASSWORD'] = None
-        app.config['MAIL_USE_CREDENTIALS'] = False
+def _get_mail_config():
+    """Read SMTP settings from the database."""
+    return {
+        'server':   Setting.get('MAIL_SERVER', 'localhost'),
+        'port':     int(Setting.get('MAIL_PORT', 25)),
+        'username': Setting.get('MAIL_USERNAME', ''),
+        'password': Setting.get('MAIL_PASSWORD', ''),
+        'sender':   Setting.get('MAIL_SENDER', 'uploader4misp@localhost'),
+    }
