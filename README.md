@@ -405,6 +405,142 @@ location / {
 
 ---
 
+## Production 部署完整指南
+
+### 1. 切換到 Production 環境
+
+本專案透過 `FLASK_ENV` 環境變數區分開發與正式環境：
+
+| 環境變數值 | 模式 | 說明 |
+|---|---|---|
+| `development`（預設） | 開發模式 | 啟用 Debug、詳細錯誤訊息 |
+| `production` | 正式模式 | 關閉 Debug、啟動時驗證 SECRET_KEY |
+
+#### 方法一：建立 `.env` 檔案（推薦）
+
+```bash
+cp .env.production.example .env
+# 編輯 .env，填入實際的 SECRET_KEY 與其他設定
+nano .env
+```
+
+`.env` 範例內容：
+
+```env
+FLASK_ENV=production
+SECRET_KEY=<使用以下指令產生的強隨機字串>
+PORT=5000
+```
+
+產生強隨機 SECRET_KEY：
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+#### 方法二：直接設定環境變數
+
+```bash
+export FLASK_ENV=production
+export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+python run.py
+```
+
+> ⚠️ **注意：** 在 `production` 模式下，若 `SECRET_KEY` 仍為預設值 `change-me-in-production`，應用程式將**拒絕啟動**並顯示錯誤訊息。
+
+---
+
+### 2. Ubuntu systemd 服務安裝
+
+將 `python run.py` 轉換為 Ubuntu 可透過 `systemctl` 管理的背景服務。
+
+#### 步驟一：安裝程式碼至 `/opt/Uploader4MISP`
+
+```bash
+sudo cp -r . /opt/Uploader4MISP
+cd /opt/Uploader4MISP
+
+# 建立虛擬環境並安裝相依套件
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+
+# 建立並編輯 production 環境變數檔
+sudo cp .env.production.example .env
+sudo nano .env   # 填入 SECRET_KEY 等設定
+```
+
+#### 步驟二：（選用）建立專用系統帳號
+
+```bash
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin uploader4misp
+sudo chown -R uploader4misp:uploader4misp /opt/Uploader4MISP
+```
+
+> 若沿用 `www-data`，請確認該帳號有 `/opt/Uploader4MISP` 的讀寫權限。
+
+#### 步驟三：安裝 systemd unit file
+
+```bash
+sudo cp /opt/Uploader4MISP/deploy/uploader4misp.service /etc/systemd/system/
+```
+
+根據實際情況編輯 unit file：
+
+```bash
+sudo nano /etc/systemd/system/uploader4misp.service
+```
+
+需確認或修改的欄位：
+
+| 欄位 | 說明 |
+|---|---|
+| `User` / `Group` | 執行服務的帳號（預設 `www-data`） |
+| `WorkingDirectory` | 專案安裝路徑（預設 `/opt/Uploader4MISP`） |
+| `ExecStart` | Python 執行路徑（確認 venv 路徑正確） |
+| `EnvironmentFile` | 取消註解以從 `.env` 載入環境變數 |
+
+#### 步驟四：啟用並啟動服務
+
+```bash
+# 重新載入 systemd 設定
+sudo systemctl daemon-reload
+
+# 設定開機自動啟動
+sudo systemctl enable uploader4misp
+
+# 立即啟動服務
+sudo systemctl start uploader4misp
+```
+
+---
+
+### 3. 服務管理常用指令
+
+```bash
+# 查看服務狀態
+sudo systemctl status uploader4misp
+
+# 啟動服務
+sudo systemctl start uploader4misp
+
+# 停止服務
+sudo systemctl stop uploader4misp
+
+# 重新啟動服務（修改設定後使用）
+sudo systemctl restart uploader4misp
+
+# 查看即時 log（按 Ctrl+C 離開）
+sudo journalctl -u uploader4misp -f
+
+# 查看最近 100 行 log
+sudo journalctl -u uploader4misp -n 100
+
+# 查看今日 log
+sudo journalctl -u uploader4misp --since today
+```
+
+---
+
 ## 貢獻者
 
 | 貢獻者 | 聯絡方式 |

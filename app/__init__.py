@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from flask_wtf.csrf import CSRFProtect
-from config import Config
+from config import ActiveConfig
 import os
 
 db = SQLAlchemy()
@@ -14,7 +14,7 @@ csrf = CSRFProtect()
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
-    app.config.from_object(Config)
+    app.config.from_object(ActiveConfig)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['TEMP_FOLDER'], exist_ok=True)
