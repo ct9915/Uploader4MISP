@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uploader4misp
+  namespace: default
+  labels:
+    app: uploader4misp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: uploader4misp
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: uploader4misp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: uploader4misp
+          # Replace with your actual image registry path
+          image: uploader4misp:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+
+          # Environment from ConfigMap (non-sensitive)
+          envFrom:
+            - configMapRef:
+                name: uploader4misp-config
+
+          # Sensitive values from Secret
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: SECRET_KEY
+            - name: MISP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MISP_URL
+            - name: MISP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MISP_KEY
+            - name: VT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: VT_API_KEY
+            - name: MAIL_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MAIL_SERVER
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MAIL_USERNAME
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MAIL_PASSWORD
+            - name: MAIL_DEFAULT_SENDER
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: MAIL_DEFAULT_SENDER
+            - name: LDAP_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: LDAP_SERVER
+                  optional: true
+            - name: LDAP_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: LDAP_BASE_DN
+                  optional: true
+            - name: LDAP_BIND_DN
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: LDAP_BIND_DN
+                  optional: true
+            - name: LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: uploader4misp-secret
+                  key: LDAP_BIND_PASSWORD
+                  optional: true
+
+          volumeMounts:
+            - name: instance-data
+              mountPath: /app/instance
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /auth/login
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /auth/login
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      volumes:
+        - name: instance-data
+          persistentVolumeClaim:
+            claimName: uploader4misp-instance
+
+      restartPolicy: Always

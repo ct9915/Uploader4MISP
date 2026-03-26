@@ -548,6 +548,86 @@ sudo journalctl -u uploader4misp --since today
 
 ---
 
+## Docker / Kubernetes 部署
+
+### 快速開始（Docker Compose）
+
+```bash
+# 1. 複製環境變數範本並填入設定值
+cp .env.example .env
+vi .env   # 填入 SECRET_KEY、MISP_URL、MISP_KEY、VT_API_KEY 等
+
+# 2. 建置映像並啟動
+docker compose up -d --build
+
+# 3. 查看日誌
+docker compose logs -f
+
+# 4. 停止服務
+docker compose down
+```
+
+服務啟動後，瀏覽器開啟 `http://localhost:5000`。
+
+持久化資料（SQLite 資料庫、上傳暫存）存放於 Docker volume `app_instance`。
+
+---
+
+### 手動建置 Docker 映像
+
+```bash
+# 建置
+docker build -t uploader4misp:latest .
+
+# 執行（傳入必要環境變數）
+docker run -d \
+  -p 5000:5000 \
+  -e SECRET_KEY=your-strong-secret \
+  -e MISP_URL=https://your-misp \
+  -e MISP_KEY=your-misp-key \
+  -e VT_API_KEY=your-vt-key \
+  -v uploader4misp_instance:/app/instance \
+  uploader4misp:latest
+```
+
+---
+
+### Kubernetes 部署
+
+**前置作業**
+
+1. 將映像推送至容器倉庫，並更新 `k8s/deployment.yaml` 中的 `image:` 欄位。
+2. 編輯 `k8s/secret.yaml`，填入真實的機密值（或改用 Sealed Secrets / External Secrets）。
+
+```bash
+# 套用所有資源
+kubectl apply -f k8s/
+
+# 確認 Pod 狀態
+kubectl get pods -l app=uploader4misp
+
+# 查看 Pod 日誌
+kubectl logs -l app=uploader4misp -f
+
+# Port-forward 本地測試
+kubectl port-forward svc/uploader4misp 8080:80
+# 開啟 http://localhost:8080
+```
+
+**k8s/ 目錄結構**
+
+| 檔案 | 說明 |
+|---|---|
+| `configmap.yaml` | 非敏感環境變數（Flask 設定、連接埠等） |
+| `secret.yaml` | 敏感資訊（API 金鑰、密碼）|
+| `pvc.yaml` | 10 GiB PersistentVolumeClaim（資料庫與上傳暫存）|
+| `deployment.yaml` | 2 副本 Deployment，含 liveness/readiness probes |
+| `service.yaml` | ClusterIP Service（可改為 LoadBalancer 或搭配 Ingress）|
+
+> ⚠️ **安全提示：** `k8s/secret.yaml` 為範本，**切勿將含真實機密的檔案提交至版本控制**。生產環境建議使用 [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) 或雲端 Secret 管理服務。
+
+---
+
 ## 貢獻者
 
 | 貢獻者 | 聯絡方式 |

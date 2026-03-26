@@ -1,0 +1,64 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+*.env
+
+# Runtime data (generated at container startup)
+instance/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Docs / diagrams (not needed in image)
+docs/
+
+# Tests
+tests/
+test_*.py
+*_test.py
+pytest.ini
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Node / frontend build artifacts (if any)
+node_modules/
+npm-debug.log
+
+# Systemd unit (not needed in container)
+*.service
+
+# Docker files themselves
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+k8s/
