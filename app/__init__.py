@@ -2,7 +2,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
-from config import ActiveConfig
+from werkzeug.middleware.proxy_fix import ProxyFix
+from config import ActiveConfig, _DEFAULT_SECRET_KEY
 import os
 
 db = SQLAlchemy()
@@ -13,6 +14,19 @@ csrf = CSRFProtect()
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.config.from_object(ActiveConfig)
+
+    # 當 SECRET_KEY 仍是預設值且非 debug 模式時，拒絕啟動
+    if not app.debug and app.config.get('SECRET_KEY') == _DEFAULT_SECRET_KEY:
+        raise RuntimeError(
+            '[Production] SECRET_KEY 未設定！'
+            '請在 .env 或環境變數中設定強隨機字串後再啟動。'
+            '產生方式：python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+
+    # 支援反向代理（nginx / Traefik 等）：
+    # 若未在反向代理後方執行，此設定無害；
+    # 若在反向代理後方，缺少此設定會導致 scheme 誤判，造成 session cookie 失效（CSRF token 遺失）。
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['TEMP_FOLDER'], exist_ok=True)
