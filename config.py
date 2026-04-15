@@ -18,6 +18,9 @@ class Config:
     TEMP_FOLDER = str(INSTANCE_DIR / 'temp')
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500 MB
     WTF_CSRF_ENABLED = True
+    # 關閉嚴格的 HTTPS Referer 檢查，以支援 nginx 反向代理（HTTPS 終止於 proxy）。
+    # ProxyFix 已正確轉發 X-Forwarded-Proto，此設定僅放寬 Referer host 比對。
+    WTF_CSRF_SSL_STRICT = False
     # 明確設定 SameSite，避免不同瀏覽器行為差異
     SESSION_COOKIE_SAMESITE = 'Lax'
 
